@@ -11,7 +11,9 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
 
 find_package(glog 0.6.0 REQUIRED)
 
-# include_directories(${CMAKE_SOURCE_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/sensekv/memory)
+include_directories(${CMAKE_SOURCE_DIR}/sensekv/db)
+include_directories(${CMAKE_SOURCE_DIR}/sensekv/utils)
 
 link_directories(${CMAKE_SOURCE_DIR}/lib)
 
