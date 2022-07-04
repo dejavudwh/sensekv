@@ -29,10 +29,10 @@ public:
     uint32_t putVal(struct Value value);
     uint32_t putKey(std::vector<std::byte> key);
 
-    std::shared_ptr<struct Node> getNode(uint32_t offset) const;
+    struct Node* getNode(uint32_t offset) const;
     std::vector<std::byte> getKey(uint32_t offset, uint16_t size) const;
-    std::shared_ptr<struct Value> getVal(uint32_t offset, uint32_t size) const;
-    uint32_t getNodeOffset(std::shared_ptr<struct Node> node) const;
+    struct Value* getVal(uint32_t offset, uint32_t size) const;
+    uint32_t getNodeOffset(struct Node* node) const;
 
 private:
     Arena() = default;

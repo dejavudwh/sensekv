@@ -33,7 +33,7 @@ struct Node
 
     std::atomic<uint32_t> tower[kMaxHeight] = {0};
 
-    static std::shared_ptr<struct Node> newNode(std::shared_ptr<Arena> arena, std::vector<std::byte> key, struct Value val, int h);
+    static struct Node* newNode(std::shared_ptr<Arena> arena, std::vector<std::byte> key, struct Value val, int h);
     
     Node() = default;
     // Node's data memory is managed by arena
@@ -44,7 +44,7 @@ struct Node
 
     ValueBytePair getValueOffset() const;
     void setValue(std::shared_ptr<Arena> arena, uint64_t newValue);
-    std::shared_ptr<struct Value> getValue(std::unique_ptr<Arena> arena);
+    struct Value* getValue(std::unique_ptr<Arena> arena);
 
     std::vector<std::byte> key(std::shared_ptr<Arena> arena) const;
     uint32_t getNextOffset(int height) const;

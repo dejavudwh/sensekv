@@ -119,7 +119,7 @@ void Skiplist::add(struct Entry entry)
         }
     }
 }
-std::shared_ptr<struct Value> Skiplist::search(std::vector<std::byte> key)
+struct Value* Skiplist::search(std::vector<std::byte> key)
 {
     auto node = std::get<0>(findNear(key, false, true));
     if (node == nullptr)
@@ -138,11 +138,11 @@ std::shared_ptr<struct Value> Skiplist::search(std::vector<std::byte> key)
 }
 bool Skiplist::empty() { return findLast() == nullptr; }
 
-std::shared_ptr<Node> Skiplist::getNext(std::shared_ptr<Node> node, int height) const
+struct Node* Skiplist::getNext(struct Node* node, int height) const
 {
     return arena->getNode(node->getNextOffset(height));
 }
-std::shared_ptr<Node> Skiplist::getHead() const { return arena->getNode(headOffset); }
+struct Node* Skiplist::getHead() const { return arena->getNode(headOffset); }
 
 // The input "before" tells us where to start looking.
 Skiplist::NodeOffsetPair Skiplist::findSpliceForLevel(std::vector<std::byte> key, uint32_t before, int level)
@@ -179,7 +179,7 @@ Skiplist::NodeOffsetPair Skiplist::findSpliceForLevel(std::vector<std::byte> key
 // If less=false, it finds leftmost node such that node.key > key (if allowEqual=false) or
 // node.key >= key (if allowEqual=true).
 // Returns the node found. The bool returned is true if the node has key equal to given key.
-std::tuple<std::shared_ptr<Node>, bool> Skiplist::findNear(std::vector<std::byte> key, bool less, bool allowEqual) const
+std::tuple<struct Node*, bool> Skiplist::findNear(std::vector<std::byte> key, bool less, bool allowEqual) const
 {
     auto node = getHead();
     int level = getHeight() - 1;
@@ -261,7 +261,7 @@ std::tuple<std::shared_ptr<Node>, bool> Skiplist::findNear(std::vector<std::byte
     }
 }
 
-std::shared_ptr<Node> Skiplist::findLast()
+struct Node* Skiplist::findLast()
 {
     auto node = getHead();
     int level = getHeight() - 1;

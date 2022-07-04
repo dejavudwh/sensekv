@@ -13,7 +13,7 @@ namespace sensekv
 Arena::~Arena()
 {
     // TODO
-    delete buf;
+    // delete buf;
 }
 
 std::shared_ptr<Arena> Arena::newArena(int64_t n)
@@ -82,7 +82,7 @@ uint32_t Arena::putKey(std::vector<std::byte> key)
     return offset;
 }
 
-std::shared_ptr<struct Node> Arena::getNode(uint32_t offset) const
+struct Node* Arena::getNode(uint32_t offset) const
 {
     // tower[n] == 0
     if (offset == 0)
@@ -91,27 +91,27 @@ std::shared_ptr<struct Node> Arena::getNode(uint32_t offset) const
     }
     // The space allocated to the node
     struct Node* node = reinterpret_cast<struct Node*>(&buf[offset]);
-    return std::shared_ptr<struct Node>(node);
+    return node;
 }
 std::vector<std::byte> Arena::getKey(uint32_t offset, uint16_t size) const
 {
     return std::vector<std::byte>{buf + offset, buf + offset + size};
 }
-std::shared_ptr<struct Value> Arena::getVal(uint32_t offset, uint32_t size) const
+struct Value* Arena::getVal(uint32_t offset, uint32_t size) const
 {
     struct Value* value = new Value();
     value->decodeValude(buf + offset, size);
 
-    return std::shared_ptr<struct Value>(value);
+    return value;
 }
-uint32_t Arena::getNodeOffset(std::shared_ptr<struct Node> node) const
+uint32_t Arena::getNodeOffset(struct Node* node) const
 {
     if (node == nullptr)
     {
         return 0;
     }
     // node addr is allocated by arena
-    uint32_t offset = reinterpret_cast<std::byte*>(node.get()) - buf;
+    uint32_t offset = reinterpret_cast<std::byte*>(node) - buf;
     return offset;
 }
 

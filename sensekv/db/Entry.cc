@@ -8,7 +8,7 @@
 namespace sensekv
 {
 // ========== struct Node
-std::shared_ptr<struct Node> Node::newNode(std::shared_ptr<Arena> arena,
+struct Node* Node::newNode(std::shared_ptr<Arena> arena,
                                            std::vector<std::byte> key,
                                            struct Value val,
                                            int h)
@@ -18,7 +18,7 @@ std::shared_ptr<struct Node> Node::newNode(std::shared_ptr<Arena> arena,
     uint32_t keySize = key.size();
     uint32_t height = static_cast<uint16_t>(h);
 
-    std::shared_ptr<Node> node = arena->getNode(nodeOffset);
+    struct Node* node = arena->getNode(nodeOffset);
     node->keyOffset = keyOffset;
     node->keySize = key.size();
     node->value = Node::encodeValue(arena->putVal(val), val.encodeSize());
@@ -47,7 +47,7 @@ void Node::setValue(std::shared_ptr<Arena> arena, uint64_t newValue)
     // The new value is already in memory in the skiplist add function
     // arena->putVal(struct Value value)
 }
-std::shared_ptr<struct Value> Node::getValue(std::unique_ptr<Arena> arena)
+struct Value* Node::getValue(std::unique_ptr<Arena> arena)
 {
     ValueBytePair vbp = getValueOffset();
     return arena->getVal(std::get<0>(vbp), std::get<1>(vbp));
