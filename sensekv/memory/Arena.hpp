@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cassert>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 
 #include "Entry.hpp"
@@ -18,9 +19,10 @@ class Arena : public Noncopyable
 public:
     ~Arena();
 
-    std::unique_ptr<Arena> newArena(int64_t n);
+    static std::shared_ptr<Arena> newArena(int64_t n);
 
     uint32_t allocate(uint32_t sz);
+
     int64_t size() const;
 
     uint32_t putNode(int height);
@@ -30,14 +32,14 @@ public:
     std::shared_ptr<struct Node> getNode(uint32_t offset) const;
     std::vector<std::byte> getKey(uint32_t offset, uint16_t size) const;
     std::shared_ptr<struct Value> getVal(uint32_t offset, uint32_t size) const;
-    uint32_t getNodeOffset(std::shared_ptr<struct Value> val) const;
+    uint32_t getNodeOffset(std::shared_ptr<struct Node> node) const;
 
 private:
-    Arena();
+    Arena() = default;
 
 private:
     std::atomic<uint32_t> n = 0;
-    bool shouldGrow = false;
+    bool shouldGrow = true;
     // the total length of buf
     uint32_t len = 0;
     std::byte* buf = nullptr;

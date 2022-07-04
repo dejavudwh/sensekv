@@ -8,32 +8,43 @@
 namespace sensekv
 {
 // ========== struct Node
-Node::Node(std::unique_ptr<Arena> arena, std::vector<std::byte> key, struct Value val, int h)
+std::shared_ptr<struct Node> Node::newNode(std::shared_ptr<Arena> arena,
+                                           std::vector<std::byte> key,
+                                           struct Value val,
+                                           int h)
 {
-    uint32_t nodeOffset = arena->putNode(height);
-    keyOffset = arena->putKey(key);
-    keySize = key.size();
-    value = encodeValue(arena->putVal(val), val.encodeSize());
-    height = static_cast<uint16_t>(h);
+    uint32_t nodeOffset = arena->putNode(h);
+    uint32_t keyOffset = arena->putKey(key);
+    uint32_t keySize = key.size();
+    uint32_t height = static_cast<uint16_t>(h);
+
+    std::shared_ptr<Node> node = arena->getNode(nodeOffset);
+    node->keyOffset = keyOffset;
+    node->keySize = key.size();
+    node->value = Node::encodeValue(arena->putVal(val), val.encodeSize());
+    node->height = height;
+
+    return node;
 }
 
-uint64_t Node::encodeValue(uint32_t valOffset, uint32_t valSize) const
+uint64_t Node::encodeValue(uint32_t valOffset, uint32_t valSize)
 {
     return static_cast<uint64_t>(valOffset) << 32 | static_cast<uint64_t>(valSize);
 }
-ValueBytePair Node::decodeValue(uint64_t val) const
+ValueBytePair Node::decodeValue(uint64_t val)
 {
-    return ValueBytePair { static_cast<uint32_t>(value), static_cast<uint32_t>(value >> 32) }
+    return ValueBytePair{static_cast<uint32_t>(val), static_cast<uint32_t>(val >> 32)};
 }
 
 ValueBytePair Node::getValueOffset() const
 {
     // cas
-    return decodeValue(value.load());
+    return Node::decodeValue(value.load());
 }
-void Node::setValue(std::unique_ptr<Arena> arena, uint64_t newValue)
+void Node::setValue(std::shared_ptr<Arena> arena, uint64_t newValue)
 {
     value.store(newValue);
+    // The new value is already in memory in the skiplist add function
     // arena->putVal(struct Value value)
 }
 std::shared_ptr<struct Value> Node::getValue(std::unique_ptr<Arena> arena)
@@ -42,38 +53,45 @@ std::shared_ptr<struct Value> Node::getValue(std::unique_ptr<Arena> arena)
     return arena->getVal(std::get<0>(vbp), std::get<1>(vbp));
 }
 
-std::vector<std::byte> Node::key(std::unique_ptr<Arena> arena) const { return arena->getKey(keyOffset, keySize); }
+std::vector<std::byte> Node::key(std::shared_ptr<Arena> arena) const { return arena->getKey(keyOffset, keySize); }
 uint32_t Node::getNextOffset(int height) const { return tower[height].load(); }
-uint32_t Node::casNextOffset(int height, uint32_t oldValue, uint32_t newValue)
+bool Node::casNextOffset(int height, uint32_t oldValue, uint32_t newValue)
 {
-    tower[height].compare_exchange_strong(oldValue, newValue);
+    return tower[height].compare_exchange_strong(oldValue, newValue);
 }
 
 // ========= struct Value
-uint32_t Value::encodeValue(std::vector<std::byte>& bytes)
+uint32_t Value::encodeValue(std::byte bytes[])
 {
-    bytes.resize(sizeof(uint64_t) + 1 + size);
     bytes[0] = meta;
     uint64_t ea = expiresAt;
     int k = 0;
     for (int i = sizeof(uint64_t); i >= 1; i--)
     {
+        // encode value part
         uint8_t bit = ea >> (64 - 8 * k);
         k++;
         bytes[i] = std::byte{bit};
     }
-    ::memcpy(&bytes[sizeof(uint64_t) + 1], value, size);
+    if (value != nullptr)
+    {
+        ::memcpy(&bytes[sizeof(uint64_t) + 1], value, size);
+    }
+
+    // return length of encode
+    return sizeof(uint64_t) + 1 + size;
 }
-void Value::decodeValude(std::vector<std::byte> bytes)
+void Value::decodeValude(std::byte bytes[], int sz)
 {
     struct Value val = {};
     val.meta = bytes[0];
     // decode uint64
     uint64_t* a = reinterpret_cast<uint64_t*>(&bytes[1]);
     expiresAt = *a;
+    // start 9
     int len = sizeof(uint64_t) + 1;
     value = &bytes[len];
-    size = bytes.size() - len;
+    size = sz - len;
 }
 
 uint32_t Value::encodeSize()

@@ -1,29 +1,39 @@
 #include "Arena.hpp"
 
+#include <sys/types.h>
+
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
+#include <memory>
 
 namespace sensekv
 {
 
-Arena::~Arena() { delete buf; }
+Arena::~Arena()
+{
+    // TODO
+    delete buf;
+}
 
-std::unique_ptr<Arena> Arena::newArena(int64_t n)
+std::shared_ptr<Arena> Arena::newArena(int64_t n)
 {
     Arena* arena = new Arena();
-    return std::unique_ptr<Arena>(arena);
+    return std::shared_ptr<Arena>(arena);
 }
 
 uint32_t Arena::allocate(uint32_t sz)
 {
-    uint32_t offset = n.fetch_add(sz);
+    uint32_t offset = n;
+    n.fetch_add(sz);
+
     if (!shouldGrow)
     {
-        assert(offset < len);
-        return offset;
+        assert(n < len);
+        return n;
     }
 
-    if (offset > len - kMaxNodeSize)
+    if (kMaxNodeSize > len || n > len - kMaxNodeSize)
     {
         uint32_t growBy = len;
         if (growBy > (1 << 30))
@@ -34,32 +44,75 @@ uint32_t Arena::allocate(uint32_t sz)
         {
             growBy = sz;
         }
-        std::byte* newBuf = reinterpret_cast<std::byte*>(::malloc(offset - len));
-        ::memcpy(newBuf, buf, len);
+        std::byte* newBuf = reinterpret_cast<std::byte*>(::malloc(growBy + len));
+        ::memcpy(newBuf, buf, offset);
+        delete buf;
         buf = newBuf;
         len += growBy;
     }
 
-    return offset - sz;
+    return n;
 }
 
-int64_t Arena::size() const 
-{
-    return n.load();
-}
+int64_t Arena::size() const { return n.load(); }
 
-uint32_t Arena::putNode(int height) 
+uint32_t Arena::putNode(int height)
 {
-    uint32_t unusedSize = (kMaxNodeSize - height) * OffsetSize;
+    // Data has not been initialized, just allocation of space, the initialization performed by new node
+    uint32_t unusedSize = (kMaxHeight - height) * OffsetSize;
+    // Compute size of node
     uint32_t n = kMaxNodeSize - unusedSize + NodeAlign;
     n = allocate(n);
 
     // memeory order
     return (n + NodeAlign) & (~NodeAlign);
 }
+uint32_t Arena::putVal(struct Value value)
+{
+    uint32_t n = value.encodeSize();
+    uint32_t offset = allocate(n);
+    value.encodeValue(buf + offset);
+    return offset;
+}
+uint32_t Arena::putKey(std::vector<std::byte> key)
+{
+    uint32_t keySz = key.size();
+    uint32_t offset = allocate(keySz);
+    ::memcpy(buf + offset, &key[0], keySz);
+    return offset;
+}
 
-uint32_t Arena::putVal(struct Value value) {}
+std::shared_ptr<struct Node> Arena::getNode(uint32_t offset) const
+{
+    // tower[n] == 0
+    if (offset == 0)
+    {
+        return nullptr;
+    }
+    // The space allocated to the node
+    struct Node* node = reinterpret_cast<struct Node*>(&buf[offset]);
+    return std::shared_ptr<struct Node>(node);
+}
+std::vector<std::byte> Arena::getKey(uint32_t offset, uint16_t size) const
+{
+    return std::vector<std::byte>{buf + offset, buf + offset + size};
+}
+std::shared_ptr<struct Value> Arena::getVal(uint32_t offset, uint32_t size) const
+{
+    struct Value* value = new Value();
+    value->decodeValude(buf + offset, size);
 
-uint32_t Arena::putKey(std::byte bytes[]) {}
+    return std::shared_ptr<struct Value>(value);
+}
+uint32_t Arena::getNodeOffset(std::shared_ptr<struct Node> node) const
+{
+    if (node == nullptr)
+    {
+        return 0;
+    }
+    // node addr is allocated by arena
+    uint32_t offset = reinterpret_cast<std::byte*>(node.get()) - buf;
+    return offset;
+}
 
 }  // namespace sensekv

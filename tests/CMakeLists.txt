@@ -1,2 +1,3 @@
-set(SRC_LIST main.cc)
-add_executable(test ${SRC_LIST})
+set(SRC_LIST arenaTest.cc)
+add_executable(arenaTest ${SRC_LIST})
+target_link_libraries(arenaTest sensekv)
