@@ -5,29 +5,10 @@
 #include <vector>
 
 #include "Arena.hpp"
-#include "KVStruct.hpp"
+#include "Entry.hpp"
 
 namespace sensekv
 {
-
-class Node
-{
-public:
-    Node(std::unique_ptr<Arena> arena, std::vector<std::byte> key, struct Value, int height);
-    // PodNode's memory is managed by arena
-    ~Node();
-
-    std::tuple<uint32_t, uint32_t> getValueOffset() const;
-    void setValue(std::unique_ptr<Arena> arena, uint64_t newValue);
-
-    std::vector<std::byte> key(std::unique_ptr<Arena>) const;
-    uint32_t getNextOffset(int height) const;
-    uint32_t casNextOffset(int height, uint32_t oldValue, uint32_t newValue);
-
-private:
-    struct PodNode* podNode = nullptr;
-};
-
 class Skiplist final
 {
 public:
