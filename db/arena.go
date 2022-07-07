@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:17:10
- * @LastEditTime: 2022-07-07 08:22:27
+ * @LastEditTime: 2022-07-07 09:24:39
  */
 
 package db
@@ -149,6 +149,7 @@ func (s *Arena) getNodeOffset(nd *Node) uint32 {
 		// nil
 		return 0
 	}
+
 	// The current node memory address and the first address of the allocated memory are subtracted to get offset
 	return uint32(uintptr(unsafe.Pointer(nd)) - uintptr(unsafe.Pointer(&s.buf[0])))
 }

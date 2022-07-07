@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 07:35:12
- * @LastEditTime: 2022-07-07 08:46:55
+ * @LastEditTime: 2022-07-07 09:25:00
  */
 package tests
 
@@ -31,7 +31,7 @@ func RandString(len int) string {
 }
 
 func TestSkipListBasicCRUD(t *testing.T) {
-	list := NewSkiplist(100)
+	list := NewSkiplist(10)
 
 	//Put & Get
 	entry1 := NewEntry([]byte(RandString(10)), []byte("Val1"))
@@ -83,7 +83,7 @@ func TestDrawList(t *testing.T) {
 
 func TestConcurrentBasic(t *testing.T) {
 	const n = 1000
-	l := NewSkiplist(10000000)
+	l := NewSkiplist(1000)
 	var wg sync.WaitGroup
 	key := func(i int) []byte {
 		return []byte(fmt.Sprintf("Keykeykey%05d", i))
