@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 12:00:25
- * @LastEditTime: 2022-07-07 12:48:05
+ * @LastEditTime: 2022-07-07 14:20:02
  */
 package cache
 
@@ -26,6 +26,16 @@ type segmentedLRU struct {
 	data                     map[uint64]*list.Element
 	stageOneCap, stageTwoCap int
 	stageOne, stageTwo       *list.List
+}
+
+func newSLRU(data map[uint64]*list.Element, stageOneCap, stageTwoCap int) *segmentedLRU {
+	return &segmentedLRU{
+		data:        data,
+		stageOneCap: stageOneCap,
+		stageTwoCap: stageTwoCap,
+		stageOne:    list.New(),
+		stageTwo:    list.New(),
+	}
 }
 
 func (slru *segmentedLRU) add(newitem storeItem) {
@@ -79,6 +89,18 @@ func (slru *segmentedLRU) get(val *list.Element) {
 
 	slru.stageOne.MoveToFront(val)
 	slru.stageTwo.MoveToFront(back)
+}
+
+/* Returns the item that may be eliminated in the segmentedLRU in the next step */
+func (slru *segmentedLRU) victim() *storeItem {
+	if slru.Len() < slru.stageOneCap+slru.stageTwoCap {
+		return nil
+	}
+
+	// If it's already full, you need to eliminate data from the 20% area,
+	// here just take the last element directly from the tail
+	v := slru.stageOne.Back()
+	return v.Value.(*storeItem)
 }
 
 func (slru *segmentedLRU) Len() int {

@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 09:05:55
- * @LastEditTime: 2022-07-07 11:10:52
+ * @LastEditTime: 2022-07-07 14:30:42
  */
 package cache
 
@@ -71,6 +71,26 @@ func (bf *BloomFilter) insert(hashCode uint32) bool {
 		hashCode += delta
 	}
 	return true
+}
+
+func (bf *BloomFilter) AllowAndRecord(h uint32) bool {
+	if bf == nil {
+		return true
+	}
+	already := bf.mayContain(h)
+	if !already {
+		bf.insert(h)
+	}
+	return already
+}
+
+func (f *BloomFilter) reset() {
+	if f == nil {
+		return
+	}
+	for i := range f.bitmap {
+		f.bitmap[i] = 0
+	}
 }
 
 func (bf *BloomFilter) Len() int32 {
