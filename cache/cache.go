@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 14:04:44
- * @LastEditTime: 2022-07-07 15:01:34
+ * @LastEditTime: 2022-07-08 03:19:22
  */
 package cache
 
@@ -13,6 +13,14 @@ import (
 	"github.com/cespare/xxhash/v2"
 )
 
+/*
+	For data that is accessed only once,
+	it is quickly eliminated in the LRU and does not occupy cache space.
+	For bursty sparse traffic,
+	that is, data that may be accessed frequently in a short period of time, the Windows-LRU can fit this access model very well
+	For really hot data,
+	it will soon go from Window-lRU to Protected area and will survive through the preservation mechanism
+*/
 type Cache struct {
 	mtx       sync.RWMutex
 	lru       *windowLRU

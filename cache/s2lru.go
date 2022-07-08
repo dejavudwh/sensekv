@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 12:00:25
- * @LastEditTime: 2022-07-07 14:20:02
+ * @LastEditTime: 2022-07-08 03:49:39
  */
 package cache
 
@@ -24,7 +24,7 @@ const (
 */
 type segmentedLRU struct {
 	data                     map[uint64]*list.Element
-	stageOneCap, stageTwoCap int
+	stageOneCap, stageTwoCap int // Probation and Proteced
 	stageOne, stageTwo       *list.List
 }
 
@@ -38,6 +38,13 @@ func newSLRU(data map[uint64]*list.Element, stageOneCap, stageTwoCap int) *segme
 	}
 }
 
+/*
+	Although this is not LFU, it does not affect the efficiency.
+	If a high-frequency word data is eliminated in slru, it will mostly be kept when pk is performed with window-lru.
+	If it is unfortunately eliminated, his elimination is deserved if it is not visited later,
+	and if it is visited again later,
+	there is a high probability that it will be re-added to the cache since his count information still exists.
+*/
 func (slru *segmentedLRU) add(newitem storeItem) {
 	newitem.stage = STAGEONE
 	if slru.stageOne.Len() < slru.stageOneCap || slru.Len() < slru.stageOneCap+slru.stageTwoCap {
@@ -61,7 +68,7 @@ func (slru *segmentedLRU) get(val *list.Element) {
 
 	// If you are accessing cached data that is already in StageTwo, simply advance it according to the LRU rules
 	if item.stage == STAGETWO {
-		slru.stageOne.MoveToFront(val)
+		slru.stageTwo.MoveToFront(val)
 		return
 	}
 	// If the accessed data is still in StageOne, it will need to be elevated to StageTwo if it is accessed again
@@ -99,6 +106,7 @@ func (slru *segmentedLRU) victim() *storeItem {
 
 	// If it's already full, you need to eliminate data from the 20% area,
 	// here just take the last element directly from the tail
+	// stageOne.Len() >= stageTwo.len()
 	v := slru.stageOne.Back()
 	return v.Value.(*storeItem)
 }
@@ -112,7 +120,7 @@ func (slru *segmentedLRU) String() string {
 	for e := slru.stageTwo.Front(); e != nil; e = e.Next() {
 		s += fmt.Sprintf("%v,", e.Value.(*storeItem).value)
 	}
-	s += fmt.Sprintf(" | ")
+	s += " | "
 	for e := slru.stageOne.Front(); e != nil; e = e.Next() {
 		s += fmt.Sprintf("%v,", e.Value.(*storeItem).value)
 	}

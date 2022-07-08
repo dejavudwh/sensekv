@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 13:01:46
- * @LastEditTime: 2022-07-07 14:00:25
+ * @LastEditTime: 2022-07-08 03:41:23
  */
 package cache
 
@@ -131,7 +131,7 @@ func (r cmRow) clear() {
 	}
 }
 
-func (r cmRow) string() string {
+func (r cmRow) String() string {
 	s := ""
 	for i := uint64(0); i < uint64(len(r)*2); i++ {
 		s += fmt.Sprintf("%02d ", (r[(i/2)]>>((i&1)*4))&0x0f)

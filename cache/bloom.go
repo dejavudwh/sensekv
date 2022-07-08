@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 09:05:55
- * @LastEditTime: 2022-07-07 14:30:42
+ * @LastEditTime: 2022-07-08 03:01:03
  */
 package cache
 
@@ -73,6 +73,7 @@ func (bf *BloomFilter) insert(hashCode uint32) bool {
 	return true
 }
 
+/* AllowAndRecord can return true if it is already the second visit */
 func (bf *BloomFilter) AllowAndRecord(h uint32) bool {
 	if bf == nil {
 		return true

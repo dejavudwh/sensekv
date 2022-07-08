@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 11:18:25
- * @LastEditTime: 2022-07-07 11:57:24
+ * @LastEditTime: 2022-07-08 03:41:40
  */
 package cache
 
@@ -46,7 +46,7 @@ func (lru *windowLRU) add(newitem storeItem) (eitem storeItem, evicted bool) {
 		return storeItem{}, false
 	}
 
-	// If the widow cap is full, follow the lru rule to eliminate it from the tail
+	// If the window cap is full, follow the lru rule to eliminate it from the tail
 	evictItem := lru.list.Back()
 	item := evictItem.Value.(*storeItem)
 	delete(lru.data, item.key)
