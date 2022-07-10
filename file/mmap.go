@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 05:17:24
- * @LastEditTime: 2022-07-10 07:09:41
+ * @LastEditTime: 2022-07-10 07:50:13
  */
 package file
 
@@ -196,6 +196,11 @@ func (m *MMapFile) Delete() error {
 	return os.Remove(m.Fd.Name())
 }
 
+/* Compatible interfaces */
+func ReName(name string) error {
+	return nil
+}
+
 func (m *MMapFile) Close() error {
 	if m.Fd == nil {
 		return nil
@@ -218,10 +223,10 @@ func (m *MMapFile) Sync() error {
 
 func (m *MMapFile) Truncature(maxSz int64) error {
 	if err := m.Sync(); err != nil {
-		return fmt.Errorf("while sync file: %s, error: %v\n", m.Fd.Name(), err)
+		return fmt.Errorf("while sync file: %s, error: %v", m.Fd.Name(), err)
 	}
 	if err := m.Fd.Truncate(maxSz); err != nil {
-		return fmt.Errorf("while truncate file: %s, error: %v\n", m.Fd.Name(), err)
+		return fmt.Errorf("while truncate file: %s, error: %v", m.Fd.Name(), err)
 	}
 
 	var err error
