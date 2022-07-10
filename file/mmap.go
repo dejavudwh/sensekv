@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 05:17:24
- * @LastEditTime: 2022-07-10 07:50:13
+ * @LastEditTime: 2022-07-10 15:17:46
  */
 package file
 
@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"sensekv/file/mmap"
+	"sensekv/utils"
 )
 
 /*
@@ -69,7 +70,7 @@ func openMMapFileUsing(fd *os.File, sz int, writable bool) (*MMapFile, error) {
 
 	if fileSize == 0 {
 		dir, _ := filepath.Split(filename)
-		go SyncDir(dir)
+		go utils.SyncDir(dir)
 	}
 
 	return &MMapFile{
@@ -232,18 +233,4 @@ func (m *MMapFile) Truncature(maxSz int64) error {
 	var err error
 	m.Data, err = mmap.Mremap(m.Data, int(maxSz)) // Mmap up to max size.
 	return err
-}
-
-func SyncDir(dir string) error {
-	df, err := os.Open(dir)
-	if err != nil {
-		return errors.Wrapf(err, "while opening %s", dir)
-	}
-	if err := df.Sync(); err != nil {
-		return errors.Wrapf(err, "while syncing %s", dir)
-	}
-	if err := df.Close(); err != nil {
-		return errors.Wrapf(err, "while closing %s", dir)
-	}
-	return nil
 }
