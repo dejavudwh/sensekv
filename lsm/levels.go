@@ -8,7 +8,7 @@ import (
 type levelManager struct {
 	maxFID       uint64 // 已经分配出去的最大fid，只要创建了memtable 就算已分配
 	opt          *Options
-	cache        *cache
+	cache        *blockCache
 	manifestFile *file.ManifestFile
 	levels       []*levelHandler
 	lsm          *LSM

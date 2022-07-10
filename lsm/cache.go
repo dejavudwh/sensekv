@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 11:09:39
- * @LastEditTime: 2022-07-10 11:17:54
+ * @LastEditTime: 2022-07-10 12:49:29
  */
 package lsm
 
@@ -11,16 +11,16 @@ import (
 
 const defaultCacheSize = 1024
 
-type cache struct {
+type blockCache struct {
 	indexs *senseCache.Cache // key = fid, value = table
 }
 
-func newCache(opt *Options) *cache {
-	return &cache{
+func newCache(opt *Options) *blockCache {
+	return &blockCache{
 		indexs: senseCache.NewCache(defaultCacheSize),
 	}
 }
 
-func (c *cache) addIndex(fid uint64, t *table) {
+func (c *blockCache) addIndex(fid uint64, t *table) {
 	c.indexs.Set(fid, t)
 }

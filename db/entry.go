@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:28:01
- * @LastEditTime: 2022-07-07 08:07:44
+ * @LastEditTime: 2022-07-10 12:18:53
  */
 package db
 
@@ -165,4 +165,12 @@ func NewEntry(key, value []byte) *Entry {
 
 func (e *Entry) Entry() *Entry {
 	return e
+}
+
+/* EncodedSize is the size of the ValueStruct when encoded */
+func (e *Entry) EncodedSize() uint32 {
+	sz := len(e.Value)
+	enc := sizeVarint(uint64(e.Meta))
+	enc += sizeVarint(e.ExpiresAt)
+	return uint32(sz + enc)
 }

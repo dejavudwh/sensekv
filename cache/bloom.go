@@ -1,11 +1,14 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 09:05:55
- * @LastEditTime: 2022-07-08 03:01:03
+ * @LastEditTime: 2022-07-10 13:22:40
  */
 package cache
 
-import "math"
+import (
+	"math"
+	"sensekv/utils"
+)
 
 const ShortBloomLen = 30
 
@@ -17,7 +20,7 @@ type BloomFilter struct {
 }
 
 func (bf *BloomFilter) MayContain(key []byte) bool {
-	return bf.mayContain(Hash(key))
+	return bf.mayContain(utils.Hash(key))
 }
 
 /*
@@ -53,7 +56,7 @@ func (bf *BloomFilter) mayContain(hashCode uint32) bool {
 }
 
 func (bf *BloomFilter) InsertKey(key []byte) bool {
-	return bf.insert(Hash(key))
+	return bf.insert(utils.Hash(key))
 }
 
 /* insert to bitmap of bloom filter */
@@ -96,33 +99,6 @@ func (f *BloomFilter) reset() {
 
 func (bf *BloomFilter) Len() int32 {
 	return int32(len(bf.bitmap))
-}
-
-/* Hash implements a hashing algorithm similar to the Murmur hash. */
-func Hash(b []byte) uint32 {
-	const (
-		seed = 0xbc9f1d34
-		m    = 0xc6a4a793
-	)
-	h := uint32(seed) ^ uint32(len(b))*m
-	for ; len(b) >= 4; b = b[4:] {
-		h += uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
-		h *= m
-		h ^= h >> 16
-	}
-	switch len(b) {
-	case 3:
-		h += uint32(b[2]) << 16
-		fallthrough
-	case 2:
-		h += uint32(b[1]) << 8
-		fallthrough
-	case 1:
-		h += uint32(b[0])
-		h *= m
-		h ^= h >> 24
-	}
-	return h
 }
 
 const (

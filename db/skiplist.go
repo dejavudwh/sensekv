@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 07:35:12
- * @LastEditTime: 2022-07-07 08:48:29
+ * @LastEditTime: 2022-07-10 12:52:16
  */
 package db
 
@@ -102,7 +102,7 @@ func (s *Skiplist) findNear(key []byte, less bool, allowEqual bool) (*Node, bool
 		}
 
 		nextKey := next.key(s.arena)
-		cmp := CompareKeys(key, nextKey)
+		cmp := utils.CompareKeys(key, nextKey)
 		if cmp > 0 {
 			// x.key < next.key < key. We can continue to move right.
 			x = next
@@ -161,7 +161,7 @@ func (s *Skiplist) findSpliceForLevel(key []byte, before uint32, level int) (uin
 			return before, next
 		}
 		nextKey := nextNode.key(s.arena)
-		cmp := CompareKeys(key, nextKey)
+		cmp := utils.CompareKeys(key, nextKey)
 		if cmp == 0 {
 			// Equality case.
 			return next, next
@@ -287,13 +287,13 @@ func (s *Skiplist) Search(key []byte) ValueStruct {
 	}
 
 	nextKey := s.arena.getKey(n.keyOffset, n.keySize)
-	if !SameKey(key, nextKey) {
+	if !utils.SameKey(key, nextKey) {
 		return ValueStruct{}
 	}
 
 	valOffset, valSize := n.getValueOffset()
 	vs := s.arena.getVal(valOffset, valSize)
-	vs.ExpiresAt = ParseTs(nextKey)
+	vs.ExpiresAt = utils.ParseTs(nextKey)
 	return vs
 }
 

@@ -1,20 +1,19 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 07:35:12
- * @LastEditTime: 2022-07-07 08:45:50
+ * @LastEditTime: 2022-07-10 12:55:21
  */
-package db
+package utils
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
-	"sensekv/utils"
 )
 
 func CompareKeys(key1, key2 []byte) int {
-	utils.CondPanic((len(key1) <= 8 || len(key2) <= 8), fmt.Errorf("%s,%s < 8", string(key1), string(key2)))
+	CondPanic((len(key1) <= 8 || len(key2) <= 8), fmt.Errorf("%s,%s < 8", string(key1), string(key2)))
 	// len(key) >= 8
 	if cmp := bytes.Compare(key1[:len(key1)-8], key2[:len(key2)-8]); cmp != 0 {
 		return cmp
