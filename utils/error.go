@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:17:10
- * @LastEditTime: 2022-07-10 09:33:52
+ * @LastEditTime: 2022-07-11 04:24:22
  */
 package utils
 
@@ -82,6 +82,13 @@ func Panic(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func WarpErr(format string, err error) error {
+	if err != nil {
+		fmt.Printf("%s %s %s", format, location(2, true), err)
+	}
+	return err
 }
 
 func Err(err error) error {

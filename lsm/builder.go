@@ -1,19 +1,21 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 11:22:17
- * @LastEditTime: 2022-07-10 13:42:46
+ * @LastEditTime: 2022-07-11 05:33:11
  */
 package lsm
 
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"sensekv/db"
 	"sensekv/file"
 	"sensekv/protob"
 	"sensekv/utils"
+	"sort"
 	"unsafe"
 )
 
@@ -321,4 +323,130 @@ func (tb *tableBuilder) keyDiff(newKey []byte) []byte {
 		}
 	}
 	return newKey[i:]
+}
+
+func (b block) verifyCheckSum() error {
+	return utils.VerifyChecksum(b.data, b.checksum)
+}
+
+type blockIterator struct {
+	data         []byte
+	idx          int
+	err          error
+	baseKey      []byte
+	key          []byte
+	val          []byte
+	entryOffsets []uint32
+	block        *block
+
+	tableID uint64
+	blockID int
+
+	prevOverlap uint16
+
+	it db.Item
+}
+
+func (itr *blockIterator) setBlock(b *block) {
+	itr.block = b
+	itr.err = nil
+	itr.idx = 0
+	itr.baseKey = itr.baseKey[:0]
+	itr.prevOverlap = 0
+	itr.key = itr.key[:0]
+	itr.val = itr.val[:0]
+	// Drop the index from the block. We don't need it anymore.
+	itr.data = b.data[:b.entriesIndexStart]
+	itr.entryOffsets = b.entryOffsets
+}
+
+/* seekToFirst brings us to the first element. */
+func (itr *blockIterator) seekToFirst() {
+	itr.setIdx(0)
+}
+func (itr *blockIterator) seekToLast() {
+	itr.setIdx(len(itr.entryOffsets) - 1)
+}
+func (itr *blockIterator) seek(key []byte) {
+	itr.err = nil
+	startIndex := 0 // This tells from which index we should start binary search.
+
+	foundEntryIdx := sort.Search(len(itr.entryOffsets), func(idx int) bool {
+		// If idx is less than start index then just return false.
+		if idx < startIndex {
+			return false
+		}
+		itr.setIdx(idx)
+		return utils.CompareKeys(itr.key, key) >= 0
+	})
+	itr.setIdx(foundEntryIdx)
+}
+
+func (itr *blockIterator) setIdx(i int) {
+	itr.idx = i
+	if i >= len(itr.entryOffsets) || i < 0 {
+		itr.err = io.EOF
+		return
+	}
+	itr.err = nil
+	startOffset := int(itr.entryOffsets[i])
+
+	// Set base key.
+	if len(itr.baseKey) == 0 {
+		var baseHeader header
+		baseHeader.decode(itr.data)
+		itr.baseKey = itr.data[headerSize : headerSize+baseHeader.diff]
+	}
+
+	var endOffset int
+	// idx points to the last entry in the block.
+	if itr.idx+1 == len(itr.entryOffsets) {
+		endOffset = len(itr.data)
+	} else {
+		// idx point to some entry other than the last one in the block.
+		// EndOffset of the current entry is the start offset of the next entry.
+		endOffset = int(itr.entryOffsets[itr.idx+1])
+	}
+
+	entryData := itr.data[startOffset:endOffset]
+	var h header
+	h.decode(entryData)
+	if h.overlap > itr.prevOverlap {
+		itr.key = append(itr.key[:itr.prevOverlap], itr.baseKey[itr.prevOverlap:h.overlap]...)
+	}
+
+	itr.prevOverlap = h.overlap
+	valueOff := headerSize + h.diff
+	diffKey := entryData[headerSize:valueOff]
+	itr.key = append(itr.key[:h.overlap], diffKey...)
+	e := &db.Entry{Key: itr.key}
+	val := &db.ValueStruct{}
+	val.DecodeValue(entryData[valueOff:])
+	itr.val = val.Value
+	e.Value = val.Value
+	e.ExpiresAt = val.ExpiresAt
+	e.Meta = val.Meta
+	itr.it = &Item{e: e}
+}
+
+func (itr *blockIterator) Error() error {
+	return itr.err
+}
+
+func (itr *blockIterator) Next() {
+	itr.setIdx(itr.idx + 1)
+}
+
+func (itr *blockIterator) Valid() bool {
+	return itr.err != io.EOF
+}
+func (itr *blockIterator) Rewind() bool {
+	itr.setIdx(0)
+	return true
+}
+func (itr *blockIterator) Item() db.Item {
+	return itr.it
+}
+func (itr *blockIterator) Close() error {
+	return nil
 }

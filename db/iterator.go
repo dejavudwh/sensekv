@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:28:01
- * @LastEditTime: 2022-07-07 07:34:04
+ * @LastEditTime: 2022-07-11 04:22:35
  */
 package db
 
@@ -16,4 +16,9 @@ type Iterator interface {
 
 type Item interface {
 	Entry() *Entry
+}
+
+type Options struct {
+	Prefix []byte
+	IsAsc  bool
 }
