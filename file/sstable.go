@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 08:11:04
- * @LastEditTime: 2022-07-10 11:01:11
+ * @LastEditTime: 2022-07-11 08:44:32
  */
 package file
 
@@ -42,7 +42,9 @@ func OpenSStable(opt *Options) *SSTable {
 	}
 }
 
+/* Initialize sstable starting from index data */
 func (ss *SSTable) Init() error {
+	// key offset of first block
 	var keyOffset *protob.BlockOffset
 	var err error
 	if keyOffset, err = ss.initTable(); err != nil {
@@ -58,6 +60,7 @@ func (ss *SSTable) Init() error {
 	// need to copy
 	minKey := make([]byte, len(keyBytes))
 	copy(minKey, keyBytes)
+	// For later sorting
 	ss.minKey = minKey
 	ss.maxKey = minKey
 	return nil
@@ -118,7 +121,7 @@ func (ss *SSTable) read(offset, sz int) ([]byte, error) {
 		return ss.f.Data[offset : offset+sz], nil
 	}
 
-	// If data is empty then return an empty byte slice
+	// Read directly from the file if len <= 0
 	res := make([]byte, sz)
 	_, err := ss.f.Fd.ReadAt(res, int64(offset))
 	return res, err

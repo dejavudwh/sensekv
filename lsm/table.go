@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 11:16:42
- * @LastEditTime: 2022-07-11 05:37:50
+ * @LastEditTime: 2022-07-11 16:56:28
  */
 package lsm
 
@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+/* A handle to sstable in memory */
 type table struct {
 	ss  *file.SSTable
 	lm  *levelManager
@@ -47,6 +48,7 @@ func openTable(lm *levelManager, tableName string, builder *tableBuilder) *table
 			return nil
 		}
 	} else {
+		// If builder is nil, it means that the content is loaded from an existing sstable
 		t = &table{lm: lm, fid: fid}
 		// If there is no builder, open an existing sst file
 		t.ss = file.OpenSStable(&file.Options{
@@ -75,7 +77,36 @@ func openTable(lm *levelManager, tableName string, builder *tableBuilder) *table
 	return t
 }
 
-// Go to load the block corresponding to sst
+/* Find key from table */
+func (t *table) Search(key []byte, maxVs *uint64) (entry *db.Entry, err error) {
+	t.IncrRef()
+	defer t.DecrRef()
+	// get index data of sstable
+	idx := t.ss.Indexs()
+	// check key by bloom filter
+	bloomFilter := utils.Filter(idx.BloomFilter)
+	if t.ss.HasBloomFilter() && !bloomFilter.MayContainKey(key) {
+		return nil, utils.ErrKeyNotFound
+	}
+	iter := t.NewIterator(&db.Options{})
+	defer iter.Close()
+
+	iter.Seek(key)
+	if !iter.Valid() {
+		return nil, utils.ErrKeyNotFound
+	}
+
+	if utils.SameKey(key, iter.Item().Entry().Key) {
+		// check and update version
+		if version := utils.ParseTs(iter.Item().Entry().Key); *maxVs < version {
+			*maxVs = version
+			return iter.Item().Entry(), nil
+		}
+	}
+	return nil, utils.ErrKeyNotFound
+}
+
+/* Go to load the block corresponding to sst */
 func (t *table) block(idx int) (*block, error) {
 	utils.CondPanic(idx < 0, fmt.Errorf("idx=%d", idx))
 	if idx >= len(t.ss.Indexs().Offsets) {
@@ -113,6 +144,7 @@ func (t *table) block(idx int) (*block, error) {
 	readPos -= b.chkLen
 	b.checksum = b.data[readPos : readPos+b.chkLen]
 
+	// kv data -> offset len
 	b.data = b.data[:readPos]
 
 	if err = b.verifyCheckSum(); err != nil {
@@ -295,19 +327,23 @@ func (it *tableIterator) seekToLast() {
 }
 
 /*
-Seek
-Dichotomous search offsets
-If idx == 0 means the key can only be in the first block block[0].MinKey <= key
-Otherwise block[0].MinKey > key
-If the key is not found in the block with idx-1 then it can only be in idx If neither, then the current key is no longer in this table
+	Dichotomous search offsets
+	If idx == 0 means the key can only be in the first block block[0].MinKey <= key
+	Otherwise block[0].MinKey > key
+	If the key is not found in the block with idx-1 then it can only be in idx If neither, then the current key is no longer in this table
 */
 func (it *tableIterator) Seek(key []byte) {
 	var ko protob.BlockOffset
+	// Dichotomous search
+	// idx is the index of index data
 	idx := sort.Search(len(it.t.ss.Indexs().GetOffsets()), func(idx int) bool {
 		utils.CondPanic(!it.t.offsets(&ko, idx), fmt.Errorf("tableutils.Seek idx < 0 || idx > len(index.GetOffsets()"))
 		if idx == len(it.t.ss.Indexs().GetOffsets()) {
 			return true
 		}
+		// The key of the first kv pair of the block is the min key
+		// compare with key
+		// Returns the first idx greater than the key, so need to minus one
 		return utils.CompareKeys(ko.GetKey(), key) > 0
 	})
 	if idx == 0 {

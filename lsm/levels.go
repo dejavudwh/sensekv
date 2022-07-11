@@ -1,6 +1,8 @@
 package lsm
 
 import (
+	"bytes"
+	"sensekv/db"
 	"sensekv/file"
 	"sensekv/utils"
 	"sort"
@@ -9,7 +11,7 @@ import (
 )
 
 type levelManager struct {
-	maxFID       uint64 // 已经分配出去的最大fid，只要创建了memtable 就算已分配
+	maxFID       uint64 // The maximum fid that has been allocated, as long as the memtable is created, is allocated.
 	opt          *Options
 	cache        *blockCache
 	manifestFile *file.ManifestFile
@@ -24,8 +26,31 @@ func (lsm *LSM) initLevelManager(opt *Options) *levelManager {
 	if err := lm.loadManifest(); err != nil {
 		panic(err)
 	}
+	// Construct the level information of the sst file from the manifest file just loaded
 	lm.build()
 	return lm
+}
+
+func (lm *levelManager) Get(key []byte) (*db.Entry, error) {
+	var (
+		entry *db.Entry
+		err   error
+	)
+	// Query from L0 level first
+	// L0 layer sstable is directly serialized from the jump table and may contain duplicate keys,
+	// so you need to iterate through all sstables to query, but L1-L7 is the merged sstable,
+	// so the interval does not overlap without duplicate keys, so you only need to query
+	if entry, err = lm.levels[0].Get(key); entry != nil {
+		return entry, err
+	}
+	// L1-7
+	for level := 1; level < lm.opt.MaxLevelNum; level++ {
+		ld := lm.levels[level]
+		if entry, err = ld.Get(key); entry != nil {
+			return entry, err
+		}
+	}
+	return entry, utils.ErrKeyNotFound
 }
 
 func (lm *levelManager) loadManifest() (err error) {
@@ -70,6 +95,50 @@ func (lm *levelManager) build() error {
 	return nil
 }
 
+// A sstable flush to L0 layer
+func (lm *levelManager) flush(immutable *memTable) (err error) {
+	// Assign a fid
+	fid := immutable.wal.Fid()
+	sstName := utils.FileNameSSTable(lm.opt.WorkDir, fid)
+
+	// build a builder (build blocks)
+	builder := newTableBuilder(lm.opt)
+	iter := immutable.sl.NewSkipListIterator()
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		entry := iter.Item().Entry()
+		builder.add(entry, false)
+	}
+	// build a table
+	table := openTable(lm, sstName, builder)
+	err = lm.manifestFile.AddTableMeta(0, &file.TableMeta{
+		ID:       fid,
+		Checksum: []byte{'m', 'o', 'c', 'k'},
+	})
+	// If the manifest into failure directly panic
+	utils.Panic(err)
+	// update manifest file
+	lm.levels[0].add(table)
+	return
+}
+
+func (lm *levelManager) close() error {
+	if err := lm.cache.close(); err != nil {
+		return err
+	}
+	if err := lm.manifestFile.Close(); err != nil {
+		return err
+	}
+	for i := range lm.levels {
+		if err := lm.levels[i].close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+/*
+	There are a total of eight levelHanders to represent each level of the sstable array
+*/
 type levelHandler struct {
 	sync.RWMutex
 	levelNum       int
@@ -91,12 +160,57 @@ func (lh *levelHandler) addBatch(ts []*table) {
 	lh.tables = append(lh.tables, ts...)
 }
 
+func (lh *levelHandler) Get(key []byte) (*db.Entry, error) {
+	// If it is a level 0 file then special handling is performed,
+	// for reasons detailed in the function that calls this interface
+	if lh.levelNum == 0 {
+		return lh.searchL0SST(key)
+	} else {
+		return lh.searchLNSST(key)
+	}
+}
+
+func (lh *levelHandler) searchL0SST(key []byte) (*db.Entry, error) {
+	var version uint64
+	for _, table := range lh.tables {
+		// Need to compare versions
+		if entry, err := table.Search(key, &version); err == nil {
+			return entry, nil
+		}
+	}
+	return nil, utils.ErrKeyNotFound
+}
+
+func (lh *levelHandler) searchLNSST(key []byte) (*db.Entry, error) {
+	// Non-0 level lookup, directly find out which sstable the key is in this level
+	table := lh.getTable(key)
+	var version uint64
+	if table == nil {
+		return nil, utils.ErrKeyNotFound
+	}
+	if entry, err := table.Search(key, &version); err == nil {
+		return entry, nil
+	}
+	return nil, utils.ErrKeyNotFound
+}
+
+func (lh *levelHandler) getTable(key []byte) *table {
+	for i := len(lh.tables) - 1; i >= 0; i-- {
+		if bytes.Compare(key, lh.tables[i].ss.MinKey()) > -1 &&
+			bytes.Compare(key, lh.tables[i].ss.MaxKey()) < 1 {
+			return lh.tables[i]
+		}
+	}
+	return nil
+}
+
 func (lh *levelHandler) Sort() {
 	lh.Lock()
 	defer lh.Unlock()
 	if lh.levelNum == 0 {
 		// Key range will overlap. Just sort by fileID in ascending order
 		// because newer tables are at the end of level 0.
+		// This way you can check from the latest sstable
 		sort.Slice(lh.tables, func(i, j int) bool {
 			return lh.tables[i].fid < lh.tables[j].fid
 		})

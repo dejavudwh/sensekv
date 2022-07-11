@@ -1,14 +1,18 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:28:01
- * @LastEditTime: 2022-07-11 05:46:45
+ * @LastEditTime: 2022-07-11 06:53:36
  */
 package db
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
+	"math/rand"
+	"sensekv/utils"
 	"sync/atomic"
+	"time"
 )
 
 // =============== Node
@@ -165,6 +169,18 @@ func NewEntry(key, value []byte) *Entry {
 
 func (e *Entry) Entry() *Entry {
 	return e
+}
+
+func BuildEntry() *Entry {
+	rand.Seed(time.Now().Unix())
+	key := []byte(fmt.Sprintf("%s%s", utils.RandStr(16), "12345678"))
+	value := []byte(utils.RandStr(128))
+	expiresAt := uint64(time.Now().Add(12*time.Hour).UnixNano() / 1e6)
+	return &Entry{
+		Key:       key,
+		Value:     value,
+		ExpiresAt: expiresAt,
+	}
 }
 
 /* EncodedSize is the size of the ValueStruct when encoded */

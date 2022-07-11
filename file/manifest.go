@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 08:02:36
- * @LastEditTime: 2022-07-10 16:58:08
+ * @LastEditTime: 2022-07-11 06:42:30
  */
 package file
 
@@ -103,6 +103,30 @@ func createManifest() *Manifest {
 		Levels: levels,
 		Tables: make(map[uint64]TableManifest),
 	}
+}
+
+/* Store the level table in the level of the manifest */
+func (mf *ManifestFile) AddTableMeta(levelNum int, t *TableMeta) (err error) {
+	mf.addChanges([]*protob.ManifestChange{
+		newCreateChange(t.ID, levelNum, t.Checksum),
+	})
+	return err
+}
+
+/* Must be called while appendLock is held. */
+func (mf *ManifestFile) rewrite() error {
+	// In Windows the files should be closed before doing a Rename.
+	if err := mf.f.Close(); err != nil {
+		return err
+	}
+	fp, nextCreations, err := helpRewrite(mf.opt.Dir, mf.manifest)
+	if err != nil {
+		return err
+	}
+	mf.manifest.Creations = nextCreations
+	mf.manifest.Deletions = 0
+	mf.f = fp
+	return nil
 }
 
 /* rewrite manifest file */
@@ -233,6 +257,38 @@ func (m *Manifest) asChanges() []*protob.ManifestChange {
 		changes = append(changes, newCreateChange(id, int(tm.Level), tm.Checksum))
 	}
 	return changes
+}
+
+func (mf *ManifestFile) addChanges(changesParam []*protob.ManifestChange) error {
+	changes := protob.ManifestChangeSet{Changes: changesParam}
+	buf, err := changes.Marshal()
+	if err != nil {
+		return err
+	}
+
+	// TODO 锁粒度可以优化
+	mf.lock.Lock()
+	defer mf.lock.Unlock()
+	if err := applyChangeSet(mf.manifest, &changes); err != nil {
+		return err
+	}
+	// Rewrite manifest if it'd shrink by 1/10 and it's big enough to care
+	if mf.manifest.Deletions > utils.ManifestDeletionsRewriteThreshold &&
+		mf.manifest.Deletions > utils.ManifestDeletionsRatio*(mf.manifest.Creations-mf.manifest.Deletions) {
+		if err := mf.rewrite(); err != nil {
+			return err
+		}
+	} else {
+		var lenCrcBuf [8]byte
+		binary.BigEndian.PutUint32(lenCrcBuf[0:4], uint32(len(buf)))
+		binary.BigEndian.PutUint32(lenCrcBuf[4:8], crc32.Checksum(buf, utils.CastagnoliCrcTable))
+		buf = append(lenCrcBuf[:], buf...)
+		if _, err := mf.f.Write(buf); err != nil {
+			return err
+		}
+	}
+	err = mf.f.Sync()
+	return err
 }
 
 // This is not a "recoverable" error -- opening the KV store fails because the MANIFEST file is

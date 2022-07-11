@@ -1,13 +1,14 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 07:48:24
- * @LastEditTime: 2022-07-10 07:48:43
+ * @LastEditTime: 2022-07-11 08:25:34
  */
 package file
 
 import "io"
 
 type Options struct {
+	// Unique identification of sensekv file
 	FID      uint64
 	FileName string
 	Dir      string

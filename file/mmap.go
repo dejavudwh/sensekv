@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 05:17:24
- * @LastEditTime: 2022-07-10 15:17:46
+ * @LastEditTime: 2022-07-11 08:23:50
  */
 package file
 
@@ -68,6 +68,8 @@ func openMMapFileUsing(fd *os.File, sz int, writable bool) (*MMapFile, error) {
 		return nil, errors.Wrapf(err, "while mmapping %s with size: %d", fd.Name(), fileSize)
 	}
 
+	// sz == 0 && fileSize == 0 the file is not exist
+	// So synchronize the entire directory, forcing the association of the MMap file
 	if fileSize == 0 {
 		dir, _ := filepath.Split(filename)
 		go utils.SyncDir(dir)

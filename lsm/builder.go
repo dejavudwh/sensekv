@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 11:22:17
- * @LastEditTime: 2022-07-11 05:33:11
+ * @LastEditTime: 2022-07-11 16:54:00
  */
 package lsm
 
@@ -19,6 +19,10 @@ import (
 	"unsafe"
 )
 
+/*
+	The tableBuilder is actually a wrapper for the in-memory block and to build the sstable,
+	which will be handed over to the sstable.go.
+*/
 type tableBuilder struct {
 	sstSize       int64
 	curBlock      *block
@@ -47,7 +51,7 @@ type block struct {
 	data              []byte
 	baseKey           []byte
 	entryOffsets      []uint32 // address of the Key/Value key-value pair
-	end               int
+	end               int      // Previous block almost finished writing position
 	estimateSz        int64
 }
 
@@ -127,6 +131,7 @@ func (tb *tableBuilder) add(e *db.Entry, isStale bool) {
 	utils.CondPanic(!(len(diffKey) <= math.MaxUint16), fmt.Errorf("tableBuilder.add: len(diffKey) <= math.MaxUint16"))
 
 	h := header{
+		// Length of the common prefix
 		overlap: uint16(len(key) - len(diffKey)),
 		diff:    uint16(len(diffKey)),
 	}
@@ -188,6 +193,7 @@ func (tb *tableBuilder) finishBlock() {
 }
 
 func (tb *tableBuilder) flush(lm *levelManager, tableName string) (t *table, err error) {
+	// Flush the last block as well
 	bd := tb.done()
 	t = &table{
 		lm:  lm,
@@ -379,6 +385,7 @@ func (itr *blockIterator) seek(key []byte) {
 		itr.setIdx(idx)
 		return utils.CompareKeys(itr.key, key) >= 0
 	})
+	// Find the corresponding entry in the block
 	itr.setIdx(foundEntryIdx)
 }
 
@@ -411,7 +418,10 @@ func (itr *blockIterator) setIdx(i int) {
 	entryData := itr.data[startOffset:endOffset]
 	var h header
 	h.decode(entryData)
+	// > Calculate different keys
 	if h.overlap > itr.prevOverlap {
+		// if abc abcd
+		// preOverlap = 3
 		itr.key = append(itr.key[:itr.prevOverlap], itr.baseKey[itr.prevOverlap:h.overlap]...)
 	}
 
