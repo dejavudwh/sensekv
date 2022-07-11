@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 08:02:36
- * @LastEditTime: 2022-07-10 15:44:45
+ * @LastEditTime: 2022-07-10 16:58:08
  */
 package file
 
@@ -282,6 +282,36 @@ func newCreateChange(id uint64, level int, checksum []byte) *protob.ManifestChan
 		Level:    uint32(level),
 		Checksum: checksum,
 	}
+}
+
+/*
+	RevertToManifest checks that all necessary table files exist and removes all table files not
+	referenced by the manifest. idMap is a set of table file id's that were read from the directory
+	listing.
+*/
+func (mf *ManifestFile) RevertToManifest(idMap map[uint64]struct{}) error {
+	// 1. Check all files in manifest exist.
+	for id := range mf.manifest.Tables {
+		if _, ok := idMap[id]; !ok {
+			return fmt.Errorf("file does not exist for table %d", id)
+		}
+	}
+
+	// 2. Delete files that shouldn't exist.
+	for id := range idMap {
+		if _, ok := mf.manifest.Tables[id]; !ok {
+			utils.Err(fmt.Errorf("Table file %d  not referenced in MANIFEST", id))
+			filename := utils.FileNameSSTable(mf.opt.Dir, id)
+			if err := os.Remove(filename); err != nil {
+				return errors.Wrapf(err, "While removing table %d", id)
+			}
+		}
+	}
+	return nil
+}
+
+func (mf *ManifestFile) GetManifest() *Manifest {
+	return mf.manifest
 }
 
 func (mf *ManifestFile) Close() error {

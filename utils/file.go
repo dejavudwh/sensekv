@@ -1,14 +1,17 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 09:30:23
- * @LastEditTime: 2022-07-10 15:22:02
+ * @LastEditTime: 2022-07-10 16:56:12
  */
 package utils
 
 import (
+	"fmt"
 	"hash/crc32"
+	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -43,6 +46,28 @@ func FID(name string) uint64 {
 		return 0
 	}
 	return uint64(id)
+}
+
+/* LoadIDMap Get the id of all sst files in the current folder */
+func LoadIDMap(dir string) map[uint64]struct{} {
+	fileInfos, err := ioutil.ReadDir(dir)
+	Err(err)
+	idMap := make(map[uint64]struct{})
+	for _, info := range fileInfos {
+		if info.IsDir() {
+			continue
+		}
+		fileID := FID(info.Name())
+		if fileID != 0 {
+			idMap[fileID] = struct{}{}
+		}
+	}
+	return idMap
+}
+
+/* sst file name*/
+func FileNameSSTable(dir string, id uint64) string {
+	return filepath.Join(dir, fmt.Sprintf("%05d.sst", id))
 }
 
 /* openDir opens a directory for syncing. */
