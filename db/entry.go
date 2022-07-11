@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:28:01
- * @LastEditTime: 2022-07-10 12:18:53
+ * @LastEditTime: 2022-07-11 05:46:45
  */
 package db
 
@@ -173,4 +173,22 @@ func (e *Entry) EncodedSize() uint32 {
 	enc := sizeVarint(uint64(e.Meta))
 	enc += sizeVarint(e.ExpiresAt)
 	return uint32(sz + enc)
+}
+
+func (e *Entry) IsZero() bool {
+	return len(e.Key) == 0
+}
+
+func (e Entry) LogHeaderLen() int {
+	return e.Hlen
+}
+
+func (e *Entry) LogOffset() uint32 {
+	return e.Offset
+}
+
+type ValuePtr struct {
+	Len    uint32
+	Offset uint32
+	Fid    uint32
 }

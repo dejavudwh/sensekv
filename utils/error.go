@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:17:10
- * @LastEditTime: 2022-07-11 04:24:22
+ * @LastEditTime: 2022-07-11 05:47:22
  */
 package utils
 
@@ -82,6 +82,10 @@ func Panic(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func Panic2(_ interface{}, err error) {
+	Panic(err)
 }
 
 func WarpErr(format string, err error) error {
