@@ -95,7 +95,7 @@ func (lm *levelManager) build() error {
 	return nil
 }
 
-// A sstable flush to L0 layer
+/* A sstable flush to L0 level */
 func (lm *levelManager) flush(immutable *memTable) (err error) {
 	// Assign a fid
 	fid := immutable.wal.Fid()

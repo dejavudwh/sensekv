@@ -85,7 +85,7 @@ func WalCodec(buf *bytes.Buffer, e *Entry) int {
 	return len(headerEnc[:sz]) + len(e.Key) + len(e.Value) + len(crcBuf)
 }
 
-// EstimateWalCodecSize 预估当前kv 写入wal文件占用的空间大小
+/* Estimated size of space occupied by the current kv write wal file */
 func EstimateWalCodecSize(e *Entry) int {
 	return len(e.Key) + len(e.Value) + 8 /* ExpiresAt uint64 */ +
 		crc32.Size + maxHeaderSize

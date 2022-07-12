@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 08:02:36
- * @LastEditTime: 2022-07-11 06:42:30
+ * @LastEditTime: 2022-07-12 05:43:52
  */
 package file
 
@@ -266,7 +266,7 @@ func (mf *ManifestFile) addChanges(changesParam []*protob.ManifestChange) error 
 		return err
 	}
 
-	// TODO 锁粒度可以优化
+	// TODO Lock granularity can be optimized
 	mf.lock.Lock()
 	defer mf.lock.Unlock()
 	if err := applyChangeSet(mf.manifest, &changes); err != nil {

@@ -64,7 +64,7 @@ func (wf *WalFile) Write(entry *db.Entry) error {
 	return nil
 }
 
-// Traversing wal from disk to get data
+/* Traversing wal from disk to get data */
 func (wf *WalFile) Iterate(readOnly bool, offset uint32, fn db.LogEntry) (uint32, error) {
 	// For now, read directly from file, because it allows
 	reader := bufio.NewReader(wf.f.NewReader(int(offset)))

@@ -81,6 +81,7 @@ func (m *memTable) Size() int64 {
 	return m.sl.MemSize()
 }
 
+/* Recover data from wal files */
 func (lsm *LSM) recovery() (*memTable, []*memTable) {
 	// Get all files from the working directory
 	files, err := ioutil.ReadDir(lsm.option.WorkDir)
@@ -150,6 +151,7 @@ func mtFilePath(dir string, fid uint64) string {
 	return filepath.Join(dir, fmt.Sprintf("%05d%s", fid, walFileExt))
 }
 
+/* The codec operation for wal files is actually performed by wal. */
 func (m *memTable) UpdateSkipList() error {
 	if m.wal == nil || m.sl == nil {
 		return nil
@@ -158,6 +160,7 @@ func (m *memTable) UpdateSkipList() error {
 	if err != nil {
 		return errors.WithMessage(err, fmt.Sprintf("while iterating wal: %s", m.wal.Name()))
 	}
+	// truncate
 	return m.wal.Truncate(int64(endOff))
 }
 
