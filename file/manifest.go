@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 08:02:36
- * @LastEditTime: 2022-07-12 05:43:52
+ * @LastEditTime: 2022-07-13 12:42:58
  */
 package file
 
@@ -257,6 +257,10 @@ func (m *Manifest) asChanges() []*protob.ManifestChange {
 		changes = append(changes, newCreateChange(id, int(tm.Level), tm.Checksum))
 	}
 	return changes
+}
+
+func (mf *ManifestFile) AddChanges(changesParam []*protob.ManifestChange) error {
+	return mf.addChanges(changesParam)
 }
 
 func (mf *ManifestFile) addChanges(changesParam []*protob.ManifestChange) error {

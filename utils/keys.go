@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 07:35:12
- * @LastEditTime: 2022-07-10 12:55:21
+ * @LastEditTime: 2022-07-13 12:38:20
  */
 package utils
 
@@ -46,4 +46,17 @@ func ParseKey(key []byte) []byte {
 	}
 
 	return key[:len(key)-8]
+}
+
+// KeyWithTs generates a new key by appending ts to key.
+func KeyWithTs(key []byte, ts uint64) []byte {
+	out := make([]byte, len(key)+8)
+	copy(out, key)
+	binary.BigEndian.PutUint64(out[len(key):], math.MaxUint64-ts)
+	return out
+}
+
+// SafeCopy does append(a[:0], src...).
+func SafeCopy(a, src []byte) []byte {
+	return append(a[:0], src...)
 }

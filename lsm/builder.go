@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 11:22:17
- * @LastEditTime: 2022-07-11 16:54:00
+ * @LastEditTime: 2022-07-13 12:40:19
  */
 package lsm
 
@@ -81,7 +81,7 @@ func newTableBuilder(opt *Options) *tableBuilder {
 	}
 }
 
-func newTableBuilderWithSSTSize(opt *Options, size int64) *tableBuilder {
+func newTableBuilerWithSSTSize(opt *Options, size int64) *tableBuilder {
 	return &tableBuilder{
 		opt:     opt,
 		sstSize: size,
@@ -90,6 +90,13 @@ func newTableBuilderWithSSTSize(opt *Options, size int64) *tableBuilder {
 
 func (tb *tableBuilder) AddKey(e *db.Entry) {
 	tb.add(e, false)
+}
+
+// AddStaleKey 记录陈旧key所占用的空间大小，用于日志压缩时的决策
+func (tb *tableBuilder) AddStaleKey(e *db.Entry) {
+	// Rough estimate based on how much space it will occupy in the SST.
+	tb.staleDataSize += len(e.Key) + len(e.Value) + 4 /* entry offset */ + 4 /* header size */
+	tb.add(e, true)
 }
 
 func (tb *tableBuilder) add(e *db.Entry, isStale bool) {
@@ -299,6 +306,19 @@ func (tb *tableBuilder) append(data []byte) {
 
 func (tb *tableBuilder) empty() bool { return len(tb.keyHashes) == 0 }
 
+func (tb *tableBuilder) finish() []byte {
+	bd := tb.done()
+	buf := make([]byte, bd.size)
+	written := bd.Copy(buf)
+	utils.CondPanic(written == len(buf), nil)
+	return buf
+}
+
+// Close closes the TableBuilder.
+func (tb *tableBuilder) Close() {
+	// 结合内存分配器
+}
+
 func (tb *tableBuilder) allocate(need int) []byte {
 	bb := tb.curBlock
 	if len(bb.data[bb.end:]) < need {
@@ -329,6 +349,10 @@ func (tb *tableBuilder) keyDiff(newKey []byte) []byte {
 		}
 	}
 	return newKey[i:]
+}
+
+func (b *tableBuilder) ReachedCapacity() bool {
+	return b.estimateSz > b.sstSize
 }
 
 func (b block) verifyCheckSum() error {

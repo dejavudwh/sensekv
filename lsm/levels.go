@@ -17,11 +17,13 @@ type levelManager struct {
 	manifestFile *file.ManifestFile
 	levels       []*levelHandler
 	lsm          *LSM
+	compactState *compactStatus
 }
 
 func (lsm *LSM) initLevelManager(opt *Options) *levelManager {
 	lm := &levelManager{lsm: lsm} // 反引用
 	lm.opt = opt
+	lm.compactState = lsm.newCompactStatus()
 	// load manifest file
 	if err := lm.loadManifest(); err != nil {
 		panic(err)
@@ -121,6 +123,15 @@ func (lm *levelManager) flush(immutable *memTable) (err error) {
 	return
 }
 
+func (lm *levelManager) iterators() []db.Iterator {
+
+	itrs := make([]db.Iterator, 0, len(lm.levels))
+	for _, level := range lm.levels {
+		itrs = append(itrs, level.iterators()...)
+	}
+	return itrs
+}
+
 func (lm *levelManager) close() error {
 	if err := lm.cache.close(); err != nil {
 		return err
@@ -134,6 +145,10 @@ func (lm *levelManager) close() error {
 		}
 	}
 	return nil
+}
+
+func (lh *levelHandler) isLastLevel() bool {
+	return lh.levelNum == lh.lm.opt.MaxLevelNum-1
 }
 
 /*
@@ -202,6 +217,103 @@ func (lh *levelHandler) getTable(key []byte) *table {
 		}
 	}
 	return nil
+}
+
+type levelHandlerRLocked struct{}
+
+// overlappingTables returns the tables that intersect with key range. Returns a half-interval.
+// This function should already have acquired a read lock, and this is so important the caller must
+// pass an empty parameter declaring such.
+// 非level层都是按照key排序的 所以二分
+func (lh *levelHandler) overlappingTables(_ levelHandlerRLocked, kr keyRange) (int, int) {
+	if len(kr.left) == 0 || len(kr.right) == 0 {
+		return 0, 0
+	}
+	left := sort.Search(len(lh.tables), func(i int) bool {
+		return utils.CompareKeys(kr.left, lh.tables[i].ss.MaxKey()) <= 0
+	})
+	right := sort.Search(len(lh.tables), func(i int) bool {
+		return utils.CompareKeys(kr.right, lh.tables[i].ss.MaxKey()) < 0
+	})
+	return left, right
+}
+
+// replaceTables will replace tables[left:right] with newTables. Note this EXCLUDES tables[right].
+// You must call decr() to delete the old tables _after_ writing the update to the manifest.
+func (lh *levelHandler) replaceTables(toDel, toAdd []*table) error {
+	// Need to re-search the range of tables in this level to be replaced as other goroutines might
+	// be changing it as well.  (They can't touch our tables, but if they add/remove other tables,
+	// the indices get shifted around.)
+	lh.Lock() // We s.Unlock() below.
+
+	toDelMap := make(map[uint64]struct{})
+	for _, t := range toDel {
+		toDelMap[t.fid] = struct{}{}
+	}
+	var newTables []*table
+	for _, t := range lh.tables {
+		_, found := toDelMap[t.fid]
+		if !found {
+			newTables = append(newTables, t)
+			continue
+		}
+		lh.subtractSize(t)
+	}
+
+	// Increase totalSize first.
+	for _, t := range toAdd {
+		lh.addSize(t)
+		t.IncrRef()
+		newTables = append(newTables, t)
+	}
+
+	// Assign tables.
+	lh.tables = newTables
+	sort.Slice(lh.tables, func(i, j int) bool {
+		return utils.CompareKeys(lh.tables[i].ss.MinKey(), lh.tables[i].ss.MinKey()) < 0
+	})
+	lh.Unlock() // s.Unlock before we DecrRef tables -- that can be slow.
+	return decrRefs(toDel)
+}
+
+// deleteTables remove tables idx0, ..., idx1-1.
+func (lh *levelHandler) deleteTables(toDel []*table) error {
+	lh.Lock() // s.Unlock() below
+
+	toDelMap := make(map[uint64]struct{})
+	for _, t := range toDel {
+		toDelMap[t.fid] = struct{}{}
+	}
+
+	// Make a copy as iterators might be keeping a slice of tables.
+	var newTables []*table
+	for _, t := range lh.tables {
+		_, found := toDelMap[t.fid]
+		if !found {
+			newTables = append(newTables, t)
+			continue
+		}
+		lh.subtractSize(t)
+	}
+	lh.tables = newTables
+
+	lh.Unlock() // Unlock s _before_ we DecrRef our tables, which can be slow.
+
+	return decrRefs(toDel)
+}
+
+func (lh *levelHandler) iterators() []db.Iterator {
+	lh.RLock()
+	defer lh.RUnlock()
+	topt := &db.Options{IsAsc: true}
+	if lh.levelNum == 0 {
+		return iteratorsReversed(lh.tables, topt)
+	}
+
+	if len(lh.tables) == 0 {
+		return nil
+	}
+	return []db.Iterator{NewConcatIterator(lh.tables, topt)}
 }
 
 func (lh *levelHandler) Sort() {

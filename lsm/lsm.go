@@ -37,10 +37,9 @@ type Options struct {
 	DiscardStatsCh *chan map[uint32]int64
 }
 
-// Close  _
 func (lsm *LSM) Close() error {
-	// 等待全部合并过程的结束
-	// 等待全部api调用过程结束
+	// Waiting for the end of all merge processes
+	// Wait for all api calls to finish
 	lsm.closer.Close()
 	// TODO need to mutex
 	if lsm.memTable != nil {
@@ -67,6 +66,14 @@ func NewLSM(opt *Options) *LSM {
 	// Initialize the closer for signal control of resource recovery
 	lsm.closer = utils.NewCloser()
 	return lsm
+}
+
+func (lsm *LSM) StartCompacter() {
+	n := lsm.option.NumCompactors
+	lsm.closer.Add(n)
+	for i := 0; i < n; i++ {
+		go lsm.levels.runCompacter(i)
+	}
 }
 
 // Set _
