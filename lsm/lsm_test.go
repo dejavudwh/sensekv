@@ -14,7 +14,7 @@ import (
 
 var (
 	opt = &Options{
-		WorkDir:             "../work_test",
+		WorkDir:             "../worktest",
 		SSTableMaxSz:        1024,
 		MemTableSize:        1024,
 		BlockSize:           1024,
