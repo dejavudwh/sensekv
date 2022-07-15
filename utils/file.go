@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 09:30:23
- * @LastEditTime: 2022-07-10 16:56:12
+ * @LastEditTime: 2022-07-15 07:34:03
  */
 package utils
 
@@ -68,6 +68,10 @@ func LoadIDMap(dir string) map[uint64]struct{} {
 /* sst file name*/
 func FileNameSSTable(dir string, id uint64) string {
 	return filepath.Join(dir, fmt.Sprintf("%05d.sst", id))
+}
+
+func VlogFilePath(dirPath string, fid uint32) string {
+	return fmt.Sprintf("%s%s%05d.vlog", dirPath, string(os.PathSeparator), fid)
 }
 
 /* openDir opens a directory for syncing. */

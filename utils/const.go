@@ -1,12 +1,13 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-10 09:31:22
- * @LastEditTime: 2022-07-13 12:35:29
+ * @LastEditTime: 2022-07-15 07:14:09
  */
 package utils
 
 import (
 	"hash/crc32"
+	"math"
 	"os"
 )
 
@@ -24,7 +25,13 @@ const (
 	BitValuePointer byte = 1 << 1 // Set if the value is NOT stored directly next to key.
 )
 
+const (
+	MaxLevelNum           = 7
+	DefaultValueThreshold = 1024
+)
+
 /* file */
+// file
 const (
 	ManifestFilename                  = "MANIFEST"
 	ManifestRewriteFilename           = "REWRITEMANIFEST"
@@ -32,4 +39,13 @@ const (
 	ManifestDeletionsRatio            = 10
 	DefaultFileFlag                   = os.O_RDWR | os.O_CREATE | os.O_APPEND
 	DefaultFileMode                   = 0666
+	MaxValueLogSize                   = 10 << 20
+	// This is O_DSYNC (datasync) on platforms that support it -- see file_unix.go
+	datasyncFileFlag = 0x0
+	// 基于可变长编码,其最可能的编码
+	MaxHeaderSize            = 21
+	VlogHeaderSize           = 0
+	MaxVlogFileSize   uint32 = math.MaxUint32
+	Mi                int64  = 1 << 20
+	KVWriteChCapacity        = 1000
 )

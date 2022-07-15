@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:28:01
- * @LastEditTime: 2022-07-13 12:36:17
+ * @LastEditTime: 2022-07-15 07:32:19
  */
 package db
 
@@ -13,7 +13,6 @@ import (
 	"sensekv/utils"
 	"sync/atomic"
 	"time"
-	"unsafe"
 )
 
 // =============== Node
@@ -192,6 +191,14 @@ func (e *Entry) EncodedSize() uint32 {
 	return uint32(sz + enc)
 }
 
+func (e *Entry) EstimateSize(threshold int) int {
+	// TODO: 是否考虑 user meta?
+	if len(e.Value) < threshold {
+		return len(e.Key) + len(e.Value) + 1 // Meta
+	}
+	return len(e.Key) + 12 + 1 // 12 for ValuePointer, 2 for meta.
+}
+
 func (e *Entry) IsZero() bool {
 	return len(e.Key) == 0
 }
@@ -202,45 +209,4 @@ func (e Entry) LogHeaderLen() int {
 
 func (e *Entry) LogOffset() uint32 {
 	return e.Offset
-}
-
-const (
-	vptrSize = unsafe.Sizeof(ValuePtr{})
-)
-
-type ValuePtr struct {
-	Len    uint32
-	Offset uint32
-	Fid    uint32
-}
-
-func (p ValuePtr) Less(o *ValuePtr) bool {
-	if o == nil {
-		return false
-	}
-	if p.Fid != o.Fid {
-		return p.Fid < o.Fid
-	}
-	if p.Offset != o.Offset {
-		return p.Offset < o.Offset
-	}
-	return p.Len < o.Len
-}
-
-func (p ValuePtr) IsZero() bool {
-	return p.Fid == 0 && p.Offset == 0 && p.Len == 0
-}
-
-// Encode encodes Pointer into byte buffer.
-func (p ValuePtr) Encode() []byte {
-	b := make([]byte, vptrSize)
-	// Copy over the content from p to b.
-	*(*ValuePtr)(unsafe.Pointer(&b[0])) = p
-	return b
-}
-
-// Decode decodes the value pointer into the provided byte buffer.
-func (p *ValuePtr) Decode(b []byte) {
-	// Copy over data from b into p. Using *p=unsafe.pointer(...) leads to
-	copy(((*[vptrSize]byte)(unsafe.Pointer(p))[:]), b[:vptrSize])
 }
