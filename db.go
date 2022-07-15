@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-15 07:03:33
- * @LastEditTime: 2022-07-15 10:32:20
+ * @LastEditTime: 2022-07-15 11:49:22
  */
 package sensekv
 
@@ -19,18 +19,29 @@ import (
 	"github.com/pkg/errors"
 )
 
-type DB struct {
-	sync.RWMutex
-	opt         *Options
-	lsm         *lsm.LSM
-	vlog        *valueLog
-	stats       *Stats
-	flushChan   chan flushTask // For flushing memtables.
-	writeCh     chan *request
-	blockWrites int32
-	vhead       *db.ValuePtr
-	logRotates  int32
-}
+type (
+	SenseAPI interface {
+		Set(data *db.Entry) error
+		Get(key []byte) (*db.Entry, error)
+		Del(key []byte) error
+		NewIterator(opt *db.Options) db.Iterator
+		Info() *Stats
+		Close() error
+	}
+
+	DB struct {
+		sync.RWMutex
+		opt         *Options
+		lsm         *lsm.LSM
+		vlog        *valueLog
+		stats       *Stats
+		flushChan   chan flushTask // For flushing memtables.
+		writeCh     chan *request
+		blockWrites int32
+		vhead       *db.ValuePtr
+		logRotates  int32
+	}
+)
 
 var (
 	head = []byte("!sensekv!head") // For storing value offset for replay.
@@ -140,6 +151,19 @@ func (database *DB) Set(data *db.Entry) error {
 		data.Value = vp.Encode()
 	}
 	return database.lsm.Set(data)
+}
+
+func (database *DB) Del(key []byte) error {
+	// 写入一个值为nil的entry 作为墓碑消息实现删除
+	return database.Set(&db.Entry{
+		Key:       key,
+		Value:     nil,
+		ExpiresAt: 0,
+	})
+}
+
+func (database *DB) Info() *Stats {
+	return database.stats
 }
 
 func isDeletedOrExpired(e *db.Entry) bool {

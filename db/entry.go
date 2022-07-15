@@ -1,7 +1,7 @@
 /*
  * @Author: dejavudwh
  * @Date: 2022-07-07 04:28:01
- * @LastEditTime: 2022-07-15 07:32:19
+ * @LastEditTime: 2022-07-15 11:59:24
  */
 package db
 
@@ -183,6 +183,11 @@ func BuildEntry() *Entry {
 	}
 }
 
+func (e *Entry) WithTTL(dur time.Duration) *Entry {
+	e.ExpiresAt = uint64(time.Now().Add(dur).Unix())
+	return e
+}
+
 /* EncodedSize is the size of the ValueStruct when encoded */
 func (e *Entry) EncodedSize() uint32 {
 	sz := len(e.Value)
@@ -201,6 +206,18 @@ func (e *Entry) EstimateSize(threshold int) int {
 
 func (e *Entry) IsZero() bool {
 	return len(e.Key) == 0
+}
+
+func (e *Entry) IsDeletedOrExpired() bool {
+	if e.Value == nil {
+		return true
+	}
+
+	if e.ExpiresAt == 0 {
+		return false
+	}
+
+	return e.ExpiresAt <= uint64(time.Now().Unix())
 }
 
 func (e Entry) LogHeaderLen() int {
